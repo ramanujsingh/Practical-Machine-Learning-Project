@@ -1,0 +1,152 @@
+---
+title: "Practical Machine Learning Project"
+author: "Ramanuj Kumar"
+date: "March 16, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Synopsis
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Data
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+###Goal
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+##Approach
+Outcome variable is classe. We will try to evaluate whether to use Random Forest or Decision Tree. Whichever model will produce high accuracy will be selected. 
+
+###Cross Validation
+We will try to cross validate by creating test and training data set randonmly from the test set provided. We will do the sampling with 80% in training and 20% in testing dataset. We will try to fit our model based traning dataset, and subsequently will be tested on testing dataset. Finally, chosen model will be used to perfrom validation against provided test dataset. 
+
+###Expected out-of-sample error
+
+The expected out-of-sample error will correspond to the quantity: 1-accuracy in the cross-validation data. Accuracy is the proportion of correct classified observation over the total sample in the TestTrainingSet data set. Expected accuracy is the expected accuracy in the out-of-sample data set (i.e. original testing data set). Thus, the expected value of the out-of-sample error will correspond to the expected number of missclassified observations/total observations in the Test data set, which is the quantity: 1-accuracy found from the cross-validation data set.
+
+Our outcome variable "classe" is a factor variable. We split the Training dataset into TrainTrainingSet and TestTrainingSet datasets.
+
+##Analysis
+
+###Load the data
+
+```{r}
+#Load library
+require(caret); 
+require(randomForest); 
+require(rpart); 
+require(rpart.plot);
+
+set.seed(1729)
+
+#Load data
+train <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+test <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+
+#Exploratory Analysis
+
+names(train)
+summary(train)
+str(train)
+head(train)
+names(test)
+summary(test)
+str(test)
+head(test)
+```
+
+Remove columns with missing values.
+
+```{r}
+train <- train[ , colSums(is.na(train)) == 0]
+test <- test[ , colSums(is.na(test)) == 0]
+names(train)
+
+```
+
+Remove not necessary columns
+
+```{r}
+train <- train[ , -c(1:7)]
+test <- test[ , -c(1:7)]
+```
+
+Create traning and test set out of traning data. 80% traning dataset, 20 % testing dataset
+
+```{r}
+part1 <- createDataPartition(y=train$classe, p=0.8, list=FALSE)
+trainset <- train[part1, ] 
+testset <- train[-part1, ]
+```
+
+Let's see frequency plot for class
+
+```{r}
+plot(trainset$classe, xlab="Class", ylab="Frequency", main = "Frequency plot for Class in traning set")
+
+```
+
+Based on the graph above, we can see that each level frequency is within the same order of magnitude of each other. Level A is the most frequent while level D is the least frequent.
+
+##Prediction model: Random Forest
+
+Let's see prediction accuracy via Random Forest
+```{r}
+model1 <- randomForest(classe ~. , data=trainset, method="class")
+pred1 <- predict(model1, testset, type = "class")
+confusionMatrix(pred1, testset$classe)
+```
+
+##Prediction model: Decision Tree
+
+Let's see prediction accuracy via Decision Tree
+```{r}
+model2 <- rpart(classe ~ ., data=trainset, method="class")
+pred2 <- predict(model2, testset, type = "class")
+confusionMatrix(pred2, testset$classe)
+
+```
+
+##Conclusion
+
+We can observe that Random Forest has accuracy of 99.5% and  95% CI : (0.9924, 0.9971) , while Decision Tree has accuracy of 74.6% and 95% CI : (0.7327, 0.7602). 
+
+Random Forest outperform Decision tree accuracy by 25%. Hence, Randowm Forest method provided better performance. The expected out-of-sample error is estimated at 0.005, or 0.5%.
+
+##Submission
+
+Perform final prediction on test data set. 
+
+```{r}
+predictTest <- predict(model1, test, type = "class")
+predictTest
+```
+
+Write result to file. 
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_", i, ".txt")
+    write.table(x[i], file=filename, quote=FALSE, row.names=FALSE, col.names=FALSE)
+  }
+}
+pml_write_files(predictTest)
+
+```
+
+
+
